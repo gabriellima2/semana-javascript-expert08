@@ -9,9 +9,18 @@ export class VideoProcessor {
     this.#mp4Demuxer = mp4Demuxer
   }
   async mp4Decoder(encoderConfig, stream) {
+    const decoder = new VideoDecoder({
+      output: (frame) => {},
+      error: (error) => console.error('MP4Decoder', error),
+    })
     await this.#mp4Demuxer.run(stream, {
-      onConfig: (config) => {},
-      onChunk: (chunk) => {}
+      onConfig: (config) => decoder.configure(config),
+      /**
+       * @param {EncodedVideoChunk} chunk 
+       */
+      onChunk: (chunk) => {
+        decoder.decode(chunk) // When processed call the ouput function
+      } // Called when onSamples is executed
     })
   }
   async start({ file, encoderConfig, sendMessage }) {
