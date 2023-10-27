@@ -16,8 +16,9 @@ worker.onmessage = ({ data }) => {
 worker.onerror = (error) => console.error('Worker', error)
 
 view.configureOnFileChange((file) => {
+    const canvas = view.getCanvas()
     // Envia um dado para a thread secundária
-    worker.postMessage({ file })
+    worker.postMessage({ file, canvas }, [ canvas ])
     clock.start((time) => {
         took = time;
         view.updateElapsedTime(`Process started ${time}`)

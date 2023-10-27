@@ -6,6 +6,7 @@ export class View {
   #txtfileName = document.getElementById('fileName')
   #fileUploadWrapper = document.getElementById('fileUploadWrapper')
   #elapsed = document.getElementById('elapsed')
+  /** @type {HTMLCanvasElement} */
   #canvas = document.getElementById('preview-144p')
 
   constructor() {
@@ -21,6 +22,10 @@ export class View {
       // trigger file input
       this.#fileUpload.click()
     })
+  }
+  
+  getCanvas() {
+    return this.#canvas.transferControlToOffscreen()
   }
 
   updateElapsedTime(text) {

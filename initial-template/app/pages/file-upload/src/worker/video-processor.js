@@ -24,7 +24,7 @@ export class VideoProcessor {
             controller.error(error)
           },
         })
-        await this.#mp4Demuxer.run(stream, {
+        return this.#mp4Demuxer.run(stream, {
           onConfig: (config) => decoder.configure(config),
           /**
            * @param {EncodedVideoChunk} chunk 
@@ -32,16 +32,18 @@ export class VideoProcessor {
           onChunk: (chunk) => {
             decoder.decode(chunk) // When processed call the ouput function
           } // Called when onSamples is executed
+        }).then(() => {
+          setTimeout(() => controller.close(), 1000)
         })
       },
     })
   }
-  async start({ file, encoderConfig, sendMessage }) {
+  async start({ file, encoderConfig, renderFrame }) {
     const stream = file.stream()
     const fileName = file.name.split('/').pop().replace('.mp4', '')
     await this.mp4Decoder(encoderConfig, stream)
       .pipeTo(new WritableStream({
-        write: (frame) => console.log(frame)
+        write: (frame) => renderFrame(frame),
       }))
   }
 }
