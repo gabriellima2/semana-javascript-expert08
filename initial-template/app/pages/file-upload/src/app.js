@@ -13,6 +13,8 @@ worker.onmessage = ({ data }) => {
     view.updateElapsedTime(`Process took ${took.replace('ago', '')}`)
 }
 
+worker.onerror = (error) => console.error('Worker', error)
+
 view.configureOnFileChange((file) => {
     // Envia um dado para a thread secundária
     worker.postMessage({ file })
