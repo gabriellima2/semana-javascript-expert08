@@ -76,7 +76,7 @@ export class VideoProcessor {
             controller.error(error)
           }
         })
-        await encoder.configure(encoderConfig)
+        encoder.configure(encoderConfig)
       },
     })
     const writable = new WritableStream({
@@ -110,7 +110,7 @@ export class VideoProcessor {
         }
         decoder.decode(encodedChunk)
         controller.enqueue(encodedChunk) // Need the encoded version to use WebM
-      }
+      },
     })
   }
   transformIntoWebM() {
@@ -122,7 +122,7 @@ export class VideoProcessor {
       })
     }
   }
-  async start({ file, encoderConfig, renderFrame }) {
+  async start({ file, encoderConfig, renderFrame, sendMessage }) {
     const stream = file.stream()
     const fileName = file.name.split('/').pop().replace('.mp4', '')
     await this.mp4Decoder(stream)
@@ -132,5 +132,6 @@ export class VideoProcessor {
       .pipeTo(new WritableStream({
         write: (frame) => {} //renderFrame(frame),
       }))
+    sendMessage({ status: 'done' })
   }
 }

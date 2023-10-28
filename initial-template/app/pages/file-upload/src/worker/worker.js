@@ -17,6 +17,6 @@ onmessage = async ({ data }) => {
     file: data.file,
     encoderConfig,
     renderFrame,
+    sendMessage: (message) => self.postMessage(message) // self === window
   })
-  self.postMessage({ status: 'done' }) // self === window
 }
