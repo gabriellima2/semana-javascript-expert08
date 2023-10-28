@@ -122,6 +122,31 @@ export class VideoProcessor {
       })
     }
   }
+  upload(fileName, resolution, type) {
+    const TEN_MB = 10e6
+    const chunks = []
+    let byteCount = 0
+    const triggerUpload = async (chunks) => {
+      const blob = new Blob(chunks, { type })
+      chunks.length = 0 // Clear array
+    }
+    return new WritableStream({
+      /**
+       * @param {object} options
+       * @param {Uint8Array} options.data
+       */
+      write: async ({ data }) => {
+        chunks.push(data)
+        byteCount += data.byteLength
+        if (byteCount <= TEN_MB) return;
+        await triggerUpload(chunks)
+      },
+      close: async () => { // Proccess last chunks before close
+        if (!chunks.length) return;
+        await triggerUpload(chunks)
+      }
+    })
+  }
   async start({ file, encoderConfig, renderFrame, sendMessage }) {
     const stream = file.stream()
     const fileName = file.name.split('/').pop().replace('.mp4', '')
@@ -129,9 +154,7 @@ export class VideoProcessor {
       .pipeThrough(this.encode144p(encoderConfig))
       .pipeThrough(this.renderDecodedFramesAndGetEncodedChunks(renderFrame))
       .pipeThrough(this.transformIntoWebM())
-      .pipeTo(new WritableStream({
-        write: (frame) => {} //renderFrame(frame),
-      }))
+      .pipeTo(this.upload(fileName, '144p', 'video/webm'))
     sendMessage({ status: 'done' })
   }
 }
