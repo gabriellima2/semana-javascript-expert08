@@ -1,15 +1,18 @@
 export class VideoProcessor {
   #mp4Demuxer;
   #webMWriter;
+  #service;
   /**
    * 
    * @param {object} options 
    * @param {import('./mp4-demuxer.js').MP4Demuxer} options.mp4Demuxer
    * @param {import('../deps/webm-writer2.js').default} options.webMWriter
+   * @param {import('./service.js').Service} options.service
    */
-  constructor({ mp4Demuxer, webMWriter }) {
+  constructor({ mp4Demuxer, webMWriter, service }) {
     this.#mp4Demuxer = mp4Demuxer
     this.#webMWriter = webMWriter
+    this.#service = service
   }
   /**
    * @returns {ReadableStream}
@@ -126,9 +129,15 @@ export class VideoProcessor {
     const TEN_MB = 10e6
     const chunks = []
     let byteCount = 0
+    let segmentCount = 0
     const triggerUpload = async (chunks) => {
-      const blob = new Blob(chunks, { type })
+      const blob = new Blob(chunks, { type: `video/${type}` })
+      await this.#service.uploadFile({
+        fileName: `${fileName}-${resolution}.${++segmentCount}.${type}`,
+        fileBuffer: blob,
+      })
       chunks.length = 0 // Clear array
+      byteCount = 0
     }
     return new WritableStream({
       /**
@@ -154,7 +163,7 @@ export class VideoProcessor {
       .pipeThrough(this.encode144p(encoderConfig))
       .pipeThrough(this.renderDecodedFramesAndGetEncodedChunks(renderFrame))
       .pipeThrough(this.transformIntoWebM())
-      .pipeTo(this.upload(fileName, '144p', 'video/webm'))
+      .pipeTo(this.upload(fileName, '144p', 'webm'))
     sendMessage({ status: 'done' })
   }
 }
