@@ -27,7 +27,12 @@ export class VideoProcessor {
         return this.#mp4Demuxer.run(stream, {
           onConfig: async (config) => {
             const { supported } = await VideoDecoder.isConfigSupported(config)
-            if (!supported) throw new Error(`Video Decoder config not supported ${config}`)
+            if (!supported) {
+              const message = 'MP4Decoder, Video Decoder config not supported'
+              console.error(message, config)
+              controller.error(message)
+              return;
+            }
             decoder.configure(config)
           },
           /**
@@ -42,13 +47,51 @@ export class VideoProcessor {
       },
     })
   }
-  encode144p(encodeConfig) {}
+  encode144p(encoderConfig) {
+    let encoder;
+    const readable = new ReadableStream({
+      start: async (controller) => {
+        const { supported } = await VideoEncoder.isConfigSupported(encoderConfig)
+        if (!supported) {
+          const message = 'Encode144p, config not supported'
+          console.error(message, encoderConfig)
+          controller.error(message)
+          return;
+        }
+        encoder = new VideoEncoder({
+          /**
+           * @param {EncodedVideoChunk} frame 
+           * @param {EncodedVideoChunkMetadata} config 
+           */
+          output: (frame, config) => {
+            if (config.decoderConfig) {
+              const decoderConfig = { type: 'config', config: config.decoderConfig }
+              controller.enqueue(decoderConfig)
+            }
+            controller.enqueue(frame)
+          },
+          error: (error) => {
+            console.error('Encode144p', error)
+            controller.error(error)
+          }
+        })
+        await encoder.configure(encoderConfig)
+      },
+    })
+    const writable = new WritableStream({
+      write: async (frame) => {
+        encoder.encode(frame) // When data is ready, this is passed to readable
+      }
+    })
+    return { readable, writable }
+  }
   async start({ file, encoderConfig, renderFrame }) {
     const stream = file.stream()
     const fileName = file.name.split('/').pop().replace('.mp4', '')
     await this.mp4Decoder(stream)
+      .pipeThrough(this.encode144p(encoderConfig))
       .pipeTo(new WritableStream({
-        write: (frame) => renderFrame(frame),
+        write: (frame) => { } //renderFrame(frame),
       }))
   }
 }
