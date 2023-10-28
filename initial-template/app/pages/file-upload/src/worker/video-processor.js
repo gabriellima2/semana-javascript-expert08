@@ -41,8 +41,6 @@ export class VideoProcessor {
           onChunk: (chunk) => {
             decoder.decode(chunk) // When processed call the ouput function
           } // Called when onSamples is executed
-        }).then(() => {
-          setTimeout(() => controller.close(), 1000)
         })
       },
     })
@@ -81,17 +79,45 @@ export class VideoProcessor {
     const writable = new WritableStream({
       write: async (frame) => {
         encoder.encode(frame) // When data is ready, this is passed to readable
+        frame.close()
       }
     })
     return { readable, writable }
+  }
+  renderDecodedFramesAndGetEncodedChunks(renderFrame) {
+    let decoder;
+    return new TransformStream({
+      start: async (controller) => {
+        decoder = new VideoDecoder({
+          output: (frame) => renderFrame(frame),
+          error: (error) => {
+            console.error('RenderFrames', error)
+            controller.error(error)
+          },
+        })
+      },
+      /**
+       * @param {EncodedVideoChunk} encodedChunk 
+       * @param {TransformStreamDefaultController} controller 
+       */
+      transform: async (encodedChunk, controller) => {
+        if (encodedChunk.type === 'config') {
+          await decoder.configure(encodedChunk.config)
+          return;
+        }
+        decoder.decode(encodedChunk)
+        controller.enqueue(encodedChunk) // Need the encoded version to use WebM
+      }
+    })
   }
   async start({ file, encoderConfig, renderFrame }) {
     const stream = file.stream()
     const fileName = file.name.split('/').pop().replace('.mp4', '')
     await this.mp4Decoder(stream)
       .pipeThrough(this.encode144p(encoderConfig))
+      .pipeThrough(this.renderDecodedFramesAndGetEncodedChunks(renderFrame))
       .pipeTo(new WritableStream({
-        write: (frame) => { } //renderFrame(frame),
+        write: (frame) => {} //renderFrame(frame),
       }))
   }
 }
